@@ -1,0 +1,89 @@
+
+import { motion } from "motion/react";
+import type { SensorFrame, DetectionResult } from "@/simulation/types";
+
+interface SensorGridProps {
+  frame: SensorFrame;
+  detection: DetectionResult;
+  onPointerMove: (x: number, y: number) => void;
+  onPointerLeave: () => void;
+}
+
+export function SensorGrid({
+  frame,
+  detection,
+  onPointerMove,
+  onPointerLeave,
+}: SensorGridProps) {
+  function handlePointer(event: React.PointerEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+
+    const x =
+      ((event.clientX - rect.left) / rect.width) * frame.columns - 0.5;
+
+    const y =
+      ((event.clientY - rect.top) / rect.height) * frame.rows - 0.5;
+
+    onPointerMove(
+      Math.max(0, Math.min(frame.columns - 1, x)),
+      Math.max(0, Math.min(frame.rows - 1, y)),
+    );
+  }
+
+  return (
+    <div
+      onPointerMove={handlePointer}
+      onPointerDown={handlePointer}
+      onPointerLeave={onPointerLeave}
+      className="relative overflow-hidden rounded-xl border border-cyan-900/50 bg-[#07111f] p-3"
+    >
+      <div
+        className="grid gap-1.5"
+        style={{
+          gridTemplateColumns: `repeat(${frame.columns}, minmax(0, 1fr))`,
+        }}
+      >
+        {frame.cells.map((cell) => {
+          const intensity = Math.max(
+            0,
+            Math.min(1, cell.delta / 0.45),
+          );
+
+          return (
+            <motion.div
+              key={`${cell.x}-${cell.y}`}
+              animate={{
+                backgroundColor: `rgba(34, 211, 238, ${0.035 + intensity * 0.9})`,
+                scale: 1 + intensity * 0.08,
+              }}
+              transition={{ duration: 0.12 }}
+              className="aspect-square rounded-[3px] border border-cyan-300/10"
+              title={`Electrode ${cell.x}, ${cell.y} · Δ ${cell.delta.toFixed(3)}`}
+            />
+          );
+        })}
+      </div>
+
+      {detection.detected && detection.x !== null && detection.y !== null && (
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{
+            scale: 1,
+            opacity: 1,
+            left: `${((detection.x + 0.5) / frame.columns) * 100}%`,
+            top: `${((detection.y + 0.5) / frame.rows) * 100}%`,
+          }}
+          className="pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_20px_rgba(34,211,238,0.9)]"
+        />
+      )}
+
+      {!detection.detected && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="rounded-full border border-cyan-900 bg-[#07111f]/90 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-cyan-300">
+            MOVE YOUR POINTER TO SCAN
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,187 @@
+
+import { useMemo, useState } from "react";
+import { motion } from "motion/react";
+import {
+  Activity,
+  Cpu,
+  Crosshair,
+  Gauge,
+  Waves,
+  Zap,
+} from "lucide-react";
+
+import { scanSensor } from "@/simulation/engine";
+import { detectTouch } from "@/simulation/detector";
+import type { FingerPosition } from "@/simulation/types";
+
+import { SensorGrid } from "@/components/dashboard/sensor-grid";
+import { MetricCard } from "@/components/dashboard/metric-card";
+import { ExperimentControls } from "@/components/dashboard/experiment-controls";
+
+const COLUMNS = 16;
+const ROWS = 10;
+
+export default function App() {
+  const [finger, setFinger] = useState<FingerPosition | null>(null);
+  const [sensitivity, setSensitivity] = useState(0.16);
+  const [noise, setNoise] = useState(0.02);
+
+  const frame = useMemo(
+    () =>
+      scanSensor({
+        columns: COLUMNS,
+        rows: ROWS,
+        finger,
+        noise,
+        strength: 0.42,
+        spread: 1.35,
+      }),
+    [finger, noise],
+  );
+
+  const detection = useMemo(
+    () => detectTouch(frame, sensitivity),
+    [frame, sensitivity],
+  );
+
+  function resetExperiment() {
+    setFinger(null);
+    setSensitivity(0.16);
+    setNoise(0.02);
+  }
+
+  return (
+    <main className="min-h-screen bg-[#080d17] text-white">
+      <div className="mx-auto max-w-[1440px] px-5 py-7 md:px-9">
+        <header className="flex flex-wrap items-center justify-between gap-5 border-b border-white/[0.08] pb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-400/30 bg-cyan-400/10">
+              <Zap className="h-6 w-6 text-cyan-300" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-[-0.06em]">
+                TOUCH<span className="text-cyan-400">TRACE</span>
+              </h1>
+              <p className="font-mono text-[9px] tracking-[0.2em] text-slate-500">
+                INTERACTIVE CAPACITIVE SENSING LAB
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[0.07] px-3 py-2">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+            <span className="font-mono text-[10px] tracking-wider text-emerald-300">
+              SIMULATION ONLINE
+            </span>
+          </div>
+        </header>
+
+        <motion.section
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="py-9"
+        >
+          <p className="font-mono text-[10px] tracking-[0.25em] text-cyan-400">
+            EXPERIMENT 001 / UNDER THE SCREEN
+          </p>
+          <h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.05em] md:text-5xl">
+            Your finger is changing something{" "}
+            <span className="text-cyan-300">invisible.</span>
+          </h2>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400">
+            Touchscreens don't need to feel your finger pressing a button.
+            Explore how changes in electrical coupling can reveal where
+            you're touching.
+          </p>
+        </motion.section>
+
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="SENSOR ARRAY"
+            value={`${COLUMNS} × ${ROWS}`}
+            detail={`${COLUMNS * ROWS} simulated intersections`}
+            icon={<Cpu size={18} />}
+          />
+          <MetricCard
+            label="TOUCH STATUS"
+            value={detection.detected ? "DETECTED" : "IDLE"}
+            detail={detection.detected ? "Signal above threshold" : "Awaiting signal"}
+            icon={<Crosshair size={18} />}
+          />
+          <MetricCard
+            label="ACTIVE CELLS"
+            value={String(detection.touches.reduce((sum, touch) => sum + touch.activeCells, 0))}
+            detail="Measurements above threshold"
+            icon={<Activity size={18} />}
+          />
+          <MetricCard
+            label="SIGNAL STRENGTH"
+            value={Math.max(0, ...detection.touches.map((touch) => touch.signalStrength)).toFixed(2)}
+            detail="Strongest detected signal"
+            icon={<Gauge size={18} />}
+          />
+        </section>
+
+        <section className="mt-6 grid items-start gap-5 xl:grid-cols-[1fr_340px]">
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-4 md:p-6">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] tracking-[0.2em] text-cyan-400">
+                  LIVE SENSOR ARRAY
+                </p>
+                <h3 className="mt-1 text-lg font-semibold">
+                  Mutual-capacitance field
+                </h3>
+              </div>
+              <span className="rounded-md border border-white/10 px-2.5 py-1 font-mono text-[10px] text-slate-400">
+                {COLUMNS}C / {ROWS}R
+              </span>
+            </div>
+
+            <SensorGrid
+              frame={frame}
+              detection={detection}
+              onPointerMove={(x, y) => setFinger({ x, y })}
+              onPointerLeave={() => setFinger(null)}
+            />
+
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg bg-black/20 p-3">
+                <p className="font-mono text-[9px] text-slate-500">ESTIMATED X</p>
+                <p className="mt-1 font-mono text-lg text-cyan-300">
+                  {detection.x === null ? "—" : detection.x.toFixed(2)}
+                </p>
+              </div>
+              <div className="rounded-lg bg-black/20 p-3">
+                <p className="font-mono text-[9px] text-slate-500">ESTIMATED Y</p>
+                <p className="mt-1 font-mono text-lg text-cyan-300">
+                  {detection.y === null ? "—" : detection.y.toFixed(2)}
+                </p>
+              </div>
+              <div className="col-span-2 rounded-lg bg-black/20 p-3 sm:col-span-1">
+                <p className="font-mono text-[9px] text-slate-500">MEASUREMENT</p>
+                <p className="mt-1 flex items-center gap-2 font-mono text-sm text-slate-300">
+                  <Waves size={15} className="text-cyan-400" />
+                  {detection.detected ? "SIGNAL CHANGE" : "BASELINE"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <ExperimentControls
+            sensitivity={sensitivity}
+            noise={noise}
+            onSensitivityChange={setSensitivity}
+            onNoiseChange={setNoise}
+            onReset={resetExperiment}
+          />
+        </section>
+
+        <footer className="mt-8 border-t border-white/[0.08] pt-5 text-center font-mono text-[9px] tracking-[0.15em] text-slate-600">
+          TOUCHTRACE · SIMPLIFIED ENGINEERING MODEL · NOT A PHYSICAL DEVICE
+        </footer>
+      </div>
+    </main>
+  );
+}

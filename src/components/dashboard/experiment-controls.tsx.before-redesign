@@ -1,0 +1,88 @@
+
+interface ExperimentControlsProps {
+  sensitivity: number;
+  noise: number;
+  onSensitivityChange: (value: number) => void;
+  onNoiseChange: (value: number) => void;
+  onReset: () => void;
+}
+
+export function ExperimentControls({
+  sensitivity,
+  noise,
+  onSensitivityChange,
+  onNoiseChange,
+  onReset,
+}: ExperimentControlsProps) {
+  return (
+    <section className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-5">
+      <div className="mb-5">
+        <p className="font-mono text-[10px] tracking-[0.2em] text-cyan-400">
+          EXPERIMENT CONTROLS
+        </p>
+        <h3 className="mt-1 text-lg font-semibold text-white">
+          Change the conditions
+        </h3>
+      </div>
+
+      <div className="space-y-6">
+        <div>
+          <div className="mb-3 flex justify-between text-sm">
+            <label htmlFor="sensitivity" className="text-slate-300">
+              Detection threshold
+            </label>
+            <span className="font-mono text-cyan-300">
+              {sensitivity.toFixed(2)}
+            </span>
+          </div>
+          <input
+            id="sensitivity"
+            type="range"
+            min="0.04"
+            max="0.38"
+            step="0.01"
+            value={sensitivity}
+            onChange={(event) =>
+              onSensitivityChange(Number(event.target.value))
+            }
+            className="w-full accent-cyan-400"
+          />
+          <p className="mt-2 text-xs text-slate-500">
+            Lower thresholds detect weaker changes.
+          </p>
+        </div>
+
+        <div>
+          <div className="mb-3 flex justify-between text-sm">
+            <label htmlFor="noise" className="text-slate-300">
+              Electrical noise
+            </label>
+            <span className="font-mono text-cyan-300">
+              {noise.toFixed(2)}
+            </span>
+          </div>
+          <input
+            id="noise"
+            type="range"
+            min="0"
+            max="0.25"
+            step="0.01"
+            value={noise}
+            onChange={(event) => onNoiseChange(Number(event.target.value))}
+            className="w-full accent-cyan-400"
+          />
+          <p className="mt-2 text-xs text-slate-500">
+            Noise makes measurements less reliable.
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={onReset}
+        className="mt-7 w-full rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 text-sm font-medium text-cyan-200 transition hover:bg-cyan-500/20"
+      >
+        Reset experiment
+      </button>
+    </section>
+  );
+}

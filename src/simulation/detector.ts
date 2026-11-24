@@ -1,0 +1,114 @@
+import type {
+  DetectionResult,
+  DetectedTouch,
+  SensorFrame,
+} from "./types";
+
+export function detectTouches(
+  frame: SensorFrame,
+  threshold = 0.16,
+  noiseLevel = 0,
+): DetectionResult {
+  const { columns, rows, cells } = frame;
+
+  if (!Number.isFinite(threshold) || threshold < 0) {
+    throw new RangeError("threshold must be finite and non-negative");
+  }
+
+  if (!Number.isFinite(noiseLevel) || noiseLevel < 0) {
+    throw new RangeError("noiseLevel must be finite and non-negative");
+  }
+
+  if (
+    !Number.isInteger(columns) ||
+    !Number.isInteger(rows) ||
+    columns < 1 ||
+    rows < 1 ||
+    cells.length !== columns * rows
+  ) {
+    throw new RangeError("Invalid sensor frame dimensions");
+  }
+
+  // The simulator's noise is bounded by [-noiseLevel, +noiseLevel].
+  // This prevents noise alone from crossing the effective threshold.
+  const effectiveThreshold = threshold + noiseLevel;
+  const active = new Map<string, number>();
+
+  for (const cell of cells) {
+    if (
+      !Number.isInteger(cell.x) ||
+      !Number.isInteger(cell.y) ||
+      cell.x < 0 ||
+      cell.x >= columns ||
+      cell.y < 0 ||
+      cell.y >= rows ||
+      !Number.isFinite(cell.delta)
+    ) {
+      throw new RangeError("Invalid sensor cell");
+    }
+
+    const weight = Math.max(0, cell.delta - effectiveThreshold);
+
+    if (weight > 0) {
+      active.set(`${cell.x},${cell.y}`, weight);
+    }
+  }
+
+  const visited = new Set<string>();
+  const touches: DetectedTouch[] = [];
+
+  for (const [key] of active) {
+    if (visited.has(key)) continue;
+
+    const queue = [key];
+    visited.add(key);
+
+    let totalWeight = 0;
+    let weightedX = 0;
+    let weightedY = 0;
+    let activeCells = 0;
+
+    for (let index = 0; index < queue.length; index++) {
+      const current = queue[index];
+      const [x, y] = current.split(",").map(Number);
+      const weight = active.get(current)!;
+
+      totalWeight += weight;
+      weightedX += x * weight;
+      weightedY += y * weight;
+      activeCells++;
+
+      const neighbors = [
+        [x - 1, y],
+        [x + 1, y],
+        [x, y - 1],
+        [x, y + 1],
+      ];
+
+      for (const [nx, ny] of neighbors) {
+        const neighborKey = `${nx},${ny}`;
+
+        if (active.has(neighborKey) && !visited.has(neighborKey)) {
+          visited.add(neighborKey);
+          queue.push(neighborKey);
+        }
+      }
+    }
+
+    touches.push({
+      x: weightedX / totalWeight,
+      y: weightedY / totalWeight,
+      signalStrength: totalWeight,
+      activeCells,
+    });
+  }
+
+  return {
+    detected: touches.length > 0,
+    touches,
+    x: touches[0]?.x ?? null,
+    y: touches[0]?.y ?? null,
+  };
+}
+
+export const detectTouch = detectTouches;

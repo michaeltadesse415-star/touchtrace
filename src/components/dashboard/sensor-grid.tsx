@@ -1,0 +1,145 @@
+import type { SensorFrame, DetectionResult } from "@/simulation/types";
+
+interface SensorGridProps {
+  frame: SensorFrame;
+  detection: DetectionResult;
+  showInternals: boolean;
+  activePointerCount: number;
+  onPointerMove: (pointerId: number, x: number, y: number) => void;
+  onPointerEnd: (pointerId: number) => void;
+}
+
+export function SensorGrid({
+  frame,
+  detection,
+  showInternals,
+  activePointerCount,
+  onPointerMove,
+  onPointerEnd,
+}: SensorGridProps) {
+  function handlePointer(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.type === "pointerdown") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+
+    if (!rect.width || !rect.height) return;
+
+    const x =
+      ((event.clientX - rect.left) / rect.width) * frame.columns - 0.5;
+
+    const y =
+      ((event.clientY - rect.top) / rect.height) * frame.rows - 0.5;
+
+    onPointerMove(
+      event.pointerId,
+      Math.max(0, Math.min(frame.columns - 1, x)),
+      Math.max(0, Math.min(frame.rows - 1, y)),
+    );
+  }
+
+  function handlePointerEnd(event: React.PointerEvent<HTMLDivElement>) {
+    onPointerEnd(event.pointerId);
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handlePointerLeave(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse") {
+      onPointerEnd(event.pointerId);
+    }
+  }
+
+  return (
+    <div className="w-full min-w-0 rounded-[22px] border border-slate-600/50 bg-gradient-to-br from-slate-600/50 via-[#101b2b] to-black p-2 shadow-[0_25px_70px_rgba(0,0,0,0.45)] sm:rounded-[30px] sm:p-3">
+      <div
+        onPointerDown={handlePointer}
+        onPointerMove={handlePointer}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+        onLostPointerCapture={(event) => onPointerEnd(event.pointerId)}
+        onPointerLeave={handlePointerLeave}
+        onContextMenu={(event) => event.preventDefault()}
+        className={`relative aspect-[4/3] touch-none select-none overflow-hidden rounded-[18px] sm:aspect-[16/10] sm:rounded-[22px] ${
+          showInternals
+            ? "cursor-crosshair bg-[#06101c]"
+            : "cursor-crosshair bg-gradient-to-br from-[#18344b] via-[#0c1d30] to-[#050b15]"
+        }`}
+      >
+        {showInternals ? (
+          <>
+            <div
+              className="grid h-full w-full gap-1 p-3 sm:gap-1.5 sm:p-5"
+              style={{
+                gridTemplateColumns: `repeat(${frame.columns}, minmax(0, 1fr))`,
+              }}
+            >
+              {frame.cells.map((cell) => {
+                const intensity = Math.max(
+                  0,
+                  Math.min(1, cell.delta / 0.45),
+                );
+
+                return (
+                  <div
+                    key={`${cell.x}-${cell.y}`}
+                    className="min-h-0 min-w-0 rounded-[3px] border border-cyan-300/10"
+                    style={{
+                      backgroundColor: `rgba(34, 211, 238, ${0.035 + intensity * 0.9})`,
+                    }}
+                    title={`Electrode ${cell.x}, ${cell.y} · Signal change ${cell.delta.toFixed(3)}`}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="pointer-events-none absolute left-4 top-4 rounded-md border border-cyan-400/20 bg-[#07111f]/80 px-3 py-2 text-xs text-cyan-200 backdrop-blur">
+              Electrode measurements
+            </div>
+
+            <div className="pointer-events-none absolute bottom-4 right-4 rounded-md border border-white/10 bg-[#07111f]/80 px-3 py-2 text-xs text-slate-300 backdrop-blur">
+              {detection.touches.length} detected signal region(s)
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_10%,rgba(103,232,249,0.13),transparent_45%),radial-gradient(ellipse_at_85%_90%,rgba(59,130,246,0.13),transparent_45%)]" />
+
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+            <div className="pointer-events-none absolute inset-3 rounded-[17px] border border-white/[0.08] sm:inset-4" />
+
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-5 text-center">
+              <div className="mb-5 h-px w-20 bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />
+
+              <p className="text-xs font-medium tracking-[0.2em] text-cyan-200/80">
+                INTERACTIVE TOUCHSCREEN
+              </p>
+
+              <h4 className="mt-3 text-2xl font-medium tracking-tight text-white sm:text-3xl">
+                {activePointerCount > 0
+                  ? "Touch input received"
+                  : "Touch the surface"}
+              </h4>
+
+              <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300/80">
+                {activePointerCount > 0
+                  ? "The simulation is processing the electrical signal."
+                  : "Move your finger or pointer across this display to begin the experiment."}
+              </p>
+
+              <div className="mt-6 h-px w-20 bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />
+            </div>
+
+            <div className="pointer-events-none absolute bottom-5 left-0 right-0 text-center text-[10px] tracking-[0.18em] text-slate-400/70">
+              CAPACITIVE TOUCH INTERACTION
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
